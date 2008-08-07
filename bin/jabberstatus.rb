@@ -147,12 +147,14 @@ def add_new_user(jid)
     send_message jid, :chat, "Please go to #{@sessions[key].login_url} and log in. Make sure you check the box which says 'save my login info'."
     send_message jid, :chat, "Then, please go to http://www.facebook.com/authorize.php?api_key=#{FB_API_KEY}&v=1.0&ext_perm=status_update, check the box and click OK."
     send_message jid, :chat, "When you've done those, come back here and let me know (just type OK or something)."
+    send_message jid, :chat, "If you want to know more about me, go to http://www.jabberstatus.org"
   elsif twitter_enabled?
     # Flag twitter session pending
     @sessions[key] = "pending"
     # Send welcome messages
     send_message jid, :chat, "Hi there #{jid.node.capitalize}! I can update your Twitter status for you if you like, but I need your Twitter details in order to do so."
     send_message jid, :chat, "Please send me your Twitter username and password, with a space in between. For instance, type 'james my_password'."
+    send_message jid, :chat, "If you want to know more about me, go to http://www.jabberstatus.org"
   end
 end
 
