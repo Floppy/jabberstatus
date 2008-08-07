@@ -24,16 +24,40 @@ require 'rubygems'
 require 'xmpp4r/client'
 require 'xmpp4r/roster/helper/roster'
 require 'facebooker'
+require 'twitter'
 require 'log4r'
 require 'yaml'
+require 'openssl'
+require 'digest/sha1'
+require 'base64'
 
 # Load config file
 config = YAML.load_file("#{File.dirname(__FILE__)}/../config/config.yml")
 XMPP_JID = config['jabber_id']
 XMPP_PASSWORD = config['jabber_password']
+TWITTER_CRYPT_KEY = config['twitter_crypt_key']
+TWITTER_CRYPT_IV = config['twitter_crypt_iv']
 FB_API_KEY = config['facebook_api_key']
 FB_API_SECRET = config['facebook_api_secret']
 ADMIN_JID = config['admin_jid']
+
+def facebook_enabled?
+  FB_API_KEY && FB_API_SECRET
+end
+
+def twitter_enabled?
+  !TWITTER_CRYPT_KEY.nil?
+end
+
+def service_name
+  if facebook_enabled?
+    return "Facebook"
+  elsif twitter_enabled?
+    return "Twitter"
+  else
+    raise "No service defined!"
+  end
+end
 
 # Create logger
 @@log = Log4r::Logger.new 'log'
@@ -64,6 +88,35 @@ module Jabber
         session.secure_with!(session_key, session_uid, 0, secret_from_session)
         return session
       end
+      def twitter_credentials=(credentials)
+        # Create hashed password
+        c = OpenSSL::Cipher::Cipher.new("aes-256-cbc")
+        c.encrypt
+        c.key = Digest::SHA1.hexdigest(TWITTER_CRYPT_KEY)
+        c.iv = Digest::SHA1.hexdigest(TWITTER_CRYPT_IV)
+        crypted_password = c.update(credentials[1])
+        crypted_password << c.final
+        # Encode
+        crypted_password = Base64.encode64(crypted_password)
+        @@log.debug "Storing twitter credentials for #{jid}"
+        self.iname = "#{credentials[0]} #{crypted_password}"
+        @@log.debug " - stored \"#{self.iname}\""
+        send
+      end
+      def twitter_credentials
+        @@log.debug "Restoring twitter credentials for #{jid}"
+        username, crypted_password = self.iname.split
+        # Decode
+        crypted_password = Base64.decode64(crypted_password)
+        # Decrypt password
+        c = OpenSSL::Cipher::Cipher.new("aes-256-cbc")
+        c.decrypt
+        c.key = Digest::SHA1.hexdigest(TWITTER_CRYPT_KEY)
+        c.iv = Digest::SHA1.hexdigest(TWITTER_CRYPT_IV)
+        password = c.update(crypted_password)
+        password << c.final
+        return username, password
+      end
     end
   end
 end
@@ -85,24 +138,40 @@ def add_new_user(jid)
   @@log.debug "adding new user #{jid.to_s}"
   # Accept subscription
   @@roster.accept_subscription(jid)  
-  # Open facebook session
   key = jid.strip.to_s
-  @sessions[key] = Facebooker::Session::Desktop.create( FB_API_KEY, FB_API_SECRET )
-  # Send welcome messages
-  send_message jid, :chat, "Hi there #{jid.node.capitalize}! I can update your Facebook status for you if you like, but I need you to do a couple of things for me in order to do so."
-  send_message jid, :chat, "Please go to #{@sessions[key].login_url} and log in. Make sure you check the box which says 'save my login info'."
-  send_message jid, :chat, "Then, please go to http://www.facebook.com/authorize.php?api_key=#{FB_API_KEY}&v=1.0&ext_perm=status_update, check the box and click OK."
-  send_message jid, :chat, "When you've done those, come back here and let me know (just type OK or something)."
+  if facebook_enabled?
+    # Open facebook session
+    @sessions[key] = Facebooker::Session::Desktop.create( FB_API_KEY, FB_API_SECRET )
+    # Send welcome messages
+    send_message jid, :chat, "Hi there #{jid.node.capitalize}! I can update your Facebook status for you if you like, but I need you to do a couple of things for me in order to do so."
+    send_message jid, :chat, "Please go to #{@sessions[key].login_url} and log in. Make sure you check the box which says 'save my login info'."
+    send_message jid, :chat, "Then, please go to http://www.facebook.com/authorize.php?api_key=#{FB_API_KEY}&v=1.0&ext_perm=status_update, check the box and click OK."
+    send_message jid, :chat, "When you've done those, come back here and let me know (just type OK or something)."
+  elsif twitter_enabled?
+    # Flag twitter session pending
+    @sessions[key] = "pending"
+    # Send welcome messages
+    send_message jid, :chat, "Hi there #{jid.node.capitalize}! I can update your Twitter status for you if you like, but I need your Twitter details in order to do so."
+    send_message jid, :chat, "Please send me your Twitter username and password, with a space in between. For instance, type 'james my_password'."
+  end
 end
 
 def set_status(user, message)
   message = unescapeHTML(message)
-  @@log.debug "setting Facebook status for #{user.jid.to_s} to \"#{message}\""
-  session = user.facebook_session
-  session.user.status = message
-  "#{session.user.name} #{session.user.status.message}"
+  if facebook_enabled?
+    @@log.debug "setting Facebook status for #{user.jid.to_s} to \"#{message}\""
+    session = user.facebook_session
+    session.user.status = message
+    "#{session.user.name} #{session.user.status.message}"
+  elsif twitter_enabled?
+    @@log.debug "setting Twitter status for #{user.jid.to_s} to \"#{message}\""
+    username, password = user.twitter_credentials
+    twitter = Twitter::Base.new(username, password)
+    twitter.post(message)
+    message
+  end
 rescue
-  "It looks like your Facebook session has expired :("
+  "Sorry - something went wrong!"
 end
 
 def remove_user(roster_item)
@@ -157,7 +226,7 @@ subscription_callback = lambda { |item,presence|
     dump_roster if @@log.debug?
     if u.nil?
       @@log.debug "... couldn't find user '#{from_jid.strip}' in roster - saying hello"
-      send_message(from_jid, m.type, "Hi! I don't think I know you - please add me to your contact list, and I can update your Facebook status for you!")
+      send_message(from_jid, m.type, "Hi! I don't think I know you - please add me to your contact list, and I can update your #{service_name} status for you!")
     elsif m.body == 'exit' and from_jid.strip == ADMIN_JID
       @@log.debug "... exit received"
       send_message(from_jid, m.type, "Exiting...")
@@ -168,17 +237,29 @@ subscription_callback = lambda { |item,presence|
       unless @sessions[key].nil?
         @@log.debug "... storing session data in roster"
         begin
-          @sessions[key].secure!
-          u.facebook_session = @sessions[key]
+          if facebook_enabled?
+            @sessions[key].secure!
+            u.facebook_session = @sessions[key]
+            send_message(from_jid, m.type, "Thanks! You should now be able to set your status by just sending me a message. For instance, if you send 'is using JabberStatus', I will set your Facebook status to 'Yourname is using JabberStatus'. Try it out!")
+          elsif twitter_enabled?
+            twitter_credentials = message.squeeze(' ').split(' ')
+            @@log.debug "... extracting username #{twitter_credentials[0]} and password #{twitter_credentials[1]}"
+            raise "bad credentials" if twitter_credentials.size != 2
+            u.twitter_credentials = twitter_credentials
+            send_message(from_jid, m.type, "Thanks! You should now be able to set your status by just sending me a message. Try it out!")
+          end
           @sessions[key] = nil
           @@log.debug "... done"
-          send_message(from_jid, m.type, "Thanks! You should now be able to set your status by just sending me a message. For instance, if you send 'is using JabberStatus', I will set your Facebook status to 'Yourname is using JabberStatus'. Try it out!")
-        rescue
-          send_message(from_jid, m.type, "Oops - something went wrong - we couldn't get the right details from Facebook. Did you check the 'save my login info' box?")
+        #rescue
+        #  if facebook_enabled?
+        #    send_message(from_jid, m.type, "Oops - something went wrong - we couldn't get the right details from Facebook. Did you check the 'save my login info' box?")
+        #  else
+        #    send_message(from_jid, m.type, "Oops - something went wrong. Sorry!")
+        #  end
         end
       else 
         new_status = set_status(u, message)
-        send_message(from_jid, m.type, "I set your Facebook status to: \"#{new_status}\"")
+        send_message(from_jid, m.type, "I set your #{service_name} status to: \"#{new_status}\"")
       end
     end
   end
