@@ -250,12 +250,12 @@ subscription_callback = lambda { |item,presence|
           end
           @sessions[key] = nil
           @@log.debug "... done"
-        #rescue
-        #  if facebook_enabled?
-        #    send_message(from_jid, m.type, "Oops - something went wrong - we couldn't get the right details from Facebook. Did you check the 'save my login info' box?")
-        #  else
-        #    send_message(from_jid, m.type, "Oops - something went wrong. Sorry!")
-        #  end
+        rescue
+          if facebook_enabled?
+            send_message(from_jid, m.type, "Oops - something went wrong - we couldn't get the right details from Facebook. Did you check the 'save my login info' box?")
+          else
+            send_message(from_jid, m.type, "Oops - something went wrong. Sorry!")
+          end
         end
       else 
         new_status = set_status(u, message)
