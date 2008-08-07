@@ -1,0 +1,6 @@
+jabber_id: jabber_id_you_want_to_use_as_gateway_goes_here
+jabber_password: jabber_password_goes_here
+facebook_api_key: your_facebook_api_key_goes_here
+facebook_api_secret: your_facebook_api_secret_goes_here
+debug_mode: false
+admin_jid: a_jabber_id_that_should_be_allowed_to_send_admin_commands
