@@ -1,7 +1,7 @@
 JabberStatus
 ------------
 
-A Ruby app which implements an XMPP -> Facebook status gateway.
+A Ruby app which implements an XMPP -> Status gateway for Facebook and Twitter.
 
 
 REQUIREMENTS
@@ -11,6 +11,7 @@ ruby >= 1.8
 rubygems
 xmpp4r >= 0.3.2
 facebooker >= subversion rev 217 (0.9.5 doesn't work)
+twitter >= 0.3.2
 log4r >= 1.0.5
 daemons >= 1.0.10
 json >= 1.1.2
@@ -19,7 +20,8 @@ INSTALLATION
 ------------
 
 If you want to *use* the service, you don't need to install anything. Just add
-facebook@jabber.org to your Jabber contact list and follow the instructions.
+facebook@jabber.org or twitterstatus@jabber.org to your Jabber contact list 
+and follow the instructions.
 
 If you don't trust me with your information (sensible), and want to run your own
 version of the gateway:
@@ -33,14 +35,17 @@ version of the gateway:
 4) Edit config/config.yml to add the jabber account login details you 
    want to use for the gateway.
 
-5) Create a desktop app on facebook, and enter your API and secret key into 
-   config/config.yml
+5) For facebook, create a desktop app on facebook, and enter your API and secret 
+   key into config/config.yml. For Twitter, just make up a couple of secret keys
+   and enter them in config/config.yml. Note that you can only run one at a time,
+   so if you want to do both, you will need two instances running with different
+   config files.
 
 6) Run "ruby bin/jabberstatus_control.rb start" to start the service (you can
    also use the stop, restart and run commands).
 
 7) Add the Jabber account in config.yml to your contact list, and enjoy updating
-   your Facebook status through Jabber!
+   your status through Jabber!
 
 
 CONTACT
