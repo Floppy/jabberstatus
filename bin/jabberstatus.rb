@@ -104,11 +104,11 @@ module Jabber
 end
 
 module ServiceFactory
-  def self.create_service
+  def self.create_service(options)
     if FacebookService.enabled?
-      return FacebookService.new
+      return FacebookService.new(options)
     elsif TwitterService.enabled?
-      return TwitterService.new
+      return TwitterService.new(options)
     end
   end
 end
@@ -117,6 +117,10 @@ class FacebookService
 
   def self.enabled?
     FB_API_KEY && FB_API_SECRET
+  end
+  
+  def initialize(options = {})
+    @log = options[:log]
   end
   
   def name
@@ -137,17 +141,17 @@ class FacebookService
   end
  
   def store_session(user, session, message_data)
-    @@log.debug "... storing Facebook session data in roster"
+    @log.debug "... storing Facebook session data in roster"
     session.secure!
     user.facebook_session = session
-    @@log.debug "... done"
+    @log.debug "... done"
     "Thanks! You should now be able to set your status by just sending me a message. For instance, if you send 'is using JabberStatus', I will set your Facebook status to 'Yourname is using JabberStatus'. Try it out!"
   rescue
     "Sorry - something went wrong! We couldn't get the right details from Facebook. Did you check the 'save my login info' box?"
   end
   
   def set_status(user, message)
-    @@log.debug "setting Facebook status for #{user.jid.to_s} to \"#{message}\""
+    @log.debug "setting Facebook status for #{user.jid.to_s} to \"#{message}\""
     session = user.facebook_session
     session.user.status = message
     "I set your Facebook status to: '#{session.user.name} #{session.user.status.message}'"
@@ -163,6 +167,10 @@ class TwitterService
     TWITTER_CRYPT_KEY && TWITTER_CRYPT_IV
   end
 
+  def initialize(options = {})
+    @log = options[:log]
+  end
+  
   def name
     "Twitter"
   end
@@ -180,17 +188,17 @@ class TwitterService
 
   def store_session(user, session, message_data)
     twitter_credentials = message_data.squeeze(' ').split(' ')
-    @@log.debug "... extracting username #{twitter_credentials[0]} and password #{twitter_credentials[1]}"
+    @log.debug "... extracting username #{twitter_credentials[0]} and password #{twitter_credentials[1]}"
     raise "bad credentials" if twitter_credentials.size != 2
     user.twitter_credentials = twitter_credentials
-    @@log.debug "... done"
+    @log.debug "... done"
     "Thanks! You should now be able to set your status by just sending me a message. Try it out!"
   rescue
     "Sorry - something went wrong!"
   end
 
   def set_status(user, message)
-    @@log.debug "setting Twitter status for #{user.jid.to_s} to \"#{message}\""
+    @log.debug "setting Twitter status for #{user.jid.to_s} to \"#{message}\""
     username, password = user.twitter_credentials
     twitter = Twitter::Base.new(username, password)
     twitter.post(message)
@@ -239,7 +247,7 @@ def dump_roster
 end
 
 @@log.debug "Create service object"
-@@service = ServiceFactory.create_service
+@@service = ServiceFactory.create_service(:log => @@log)
 
 @@log.debug "Creating jabber client"
 @@client = Jabber::Client::new(XMPP_JID)
