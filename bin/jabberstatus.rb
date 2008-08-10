@@ -70,7 +70,7 @@ module Jabber
         session.secure_with!(session_key, session_uid, 0, secret_from_session)
         return session
       end
-      def twitter_credentials=(credentials)
+      def twitter_session=(credentials)
         # Create hashed password
         c = OpenSSL::Cipher::Cipher.new("aes-256-cbc")
         c.encrypt
@@ -80,13 +80,13 @@ module Jabber
         crypted_password << c.final
         # Encode
         crypted_password = Base64.encode64(crypted_password)
-        @@log.debug "Storing twitter credentials for #{jid}"
+        @@log.debug "Storing twitter session for #{jid}"
         self.iname = "#{credentials[0]} #{crypted_password}"
         @@log.debug " - stored \"#{self.iname}\""
         send
       end
-      def twitter_credentials
-        @@log.debug "Restoring twitter credentials for #{jid}"
+      def twitter_session
+        @@log.debug "Restoring twitter session for #{jid}"
         username, crypted_password = self.iname.split
         # Decode
         crypted_password = Base64.decode64(crypted_password)
@@ -97,7 +97,7 @@ module Jabber
         c.iv = Digest::SHA1.hexdigest(TWITTER_CRYPT_IV)
         password = c.update(crypted_password)
         password << c.final
-        return username, password
+        return Twitter::Base.new(username, password)
       end
     end
   end
@@ -190,7 +190,7 @@ class TwitterService
     twitter_credentials = message_data.squeeze(' ').split(' ')
     @log.debug "... extracting username #{twitter_credentials[0]} and password #{twitter_credentials[1]}"
     raise "bad credentials" if twitter_credentials.size != 2
-    user.twitter_credentials = twitter_credentials
+    user.twitter_session = twitter_credentials
     @log.debug "... done"
     "Thanks! You should now be able to set your status by just sending me a message. Try it out!"
   rescue
@@ -199,8 +199,7 @@ class TwitterService
 
   def set_status(user, message)
     @log.debug "setting Twitter status for #{user.jid.to_s} to \"#{message}\""
-    username, password = user.twitter_credentials
-    twitter = Twitter::Base.new(username, password)
+    twitter = user.twitter_session
     twitter.post(message)
     "I set your status to '#{message}'"
   rescue
@@ -264,7 +263,6 @@ mainthread = Thread.current
 
 # Respond to subscriptions
 subscription_callback = lambda { |item,presence|
-  name = presence.from
   case presence.type
     when :subscribe then       
       add_new_user(presence.from)
