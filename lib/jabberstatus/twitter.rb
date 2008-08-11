@@ -1,4 +1,8 @@
+require 'openssl'
+require 'digest/sha1'
+require 'base64'
 require 'twitter'
+
 require 'jabberstatus/jabber'
 
 class TwitterService
@@ -30,7 +34,7 @@ class TwitterService
     twitter_credentials = message_data.squeeze(' ').split(' ')
     @log.debug "... extracting username #{twitter_credentials[0]} and password #{twitter_credentials[1]}"
     raise "bad credentials" if twitter_credentials.size != 2
-    user.twitter_session = twitter_credentials
+    store_session_in_roster(user, twitter_credentials)
     @log.debug "... done"
     "Thanks! You should now be able to set your status by just sending me a message. Try it out!"
   rescue
@@ -39,11 +43,44 @@ class TwitterService
 
   def set_status(user, message)
     @log.debug "setting Twitter status for #{user.jid.to_s} to \"#{message}\""
-    twitter = user.twitter_session
+    twitter = retrieve_session_from_roster(user)
     twitter.post(message)
     "I set your status to '#{message}'"
   rescue
     "Sorry - something went wrong!"
   end
+
+  protected
+
+  def store_session_in_roster(user, credentials)
+    # Create hashed password
+    c = OpenSSL::Cipher::Cipher.new("aes-256-cbc")
+    c.encrypt
+    c.key = Digest::SHA1.hexdigest(TWITTER_CRYPT_KEY)
+    c.iv = Digest::SHA1.hexdigest(TWITTER_CRYPT_IV)
+    crypted_password = c.update(credentials[1])
+    crypted_password << c.final
+    # Encode
+    crypted_password = Base64.encode64(crypted_password)
+    @log.debug "Storing twitter session for #{jid}"
+    user.session_data = [credentials[0], crypted_password]
+    @log.debug " - stored \"#{self.iname}\""
+    send
+  end
   
+  def retrieve_session_from_roster(user)
+    @log.debug "Restoring twitter session for #{jid}"
+    username, crypted_password = user.session_data
+    # Decode
+    crypted_password = Base64.decode64(crypted_password)
+    # Decrypt password
+    c = OpenSSL::Cipher::Cipher.new("aes-256-cbc")
+    c.decrypt
+    c.key = Digest::SHA1.hexdigest(TWITTER_CRYPT_KEY)
+    c.iv = Digest::SHA1.hexdigest(TWITTER_CRYPT_IV)
+    password = c.update(crypted_password)
+    password << c.final
+    return Twitter::Base.new(username, password)
+  end
+
 end

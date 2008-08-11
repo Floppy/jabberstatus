@@ -1,4 +1,5 @@
 require 'facebooker'
+
 require 'jabberstatus/jabber'
 
 class FacebookService
@@ -31,7 +32,7 @@ class FacebookService
   def store_session(user, session, message_data)
     @log.debug "... storing Facebook session data in roster"
     session.secure!
-    user.facebook_session = session
+    store_session_in_roster(user, session)
     @log.debug "... done"
     "Thanks! You should now be able to set your status by just sending me a message. For instance, if you send 'is using JabberStatus', I will set your Facebook status to 'Yourname is using JabberStatus'. Try it out!"
   rescue
@@ -40,11 +41,30 @@ class FacebookService
   
   def set_status(user, message)
     @log.debug "setting Facebook status for #{user.jid.to_s} to \"#{message}\""
-    session = user.facebook_session
+    session = retrieve_session_from_roster(user)
     session.user.status = message
     "I set your Facebook status to: '#{session.user.name} #{session.user.status.message}'"
   rescue
     "Sorry - something went wrong!"
   end
   
+protected
+
+  def store_session_in_roster(user, session)
+    if session.infinite?
+      user.session_data = [session.session_key, session.user.id, session.auth_token, session.secret_for_method(nil)]
+    else
+      raise "Facebook session for #{user.jid.to_s} is not infinite!"
+    end
+  end
+ 
+  def retrieve_session_from_roster(user)
+    @log.debug "Restoring facebook session for #{user.jid.to_s}"
+    session_key, session_uid, session_auth_token, secret_from_session = user.session_data
+    session = Facebooker::Session::Desktop.create( FB_API_KEY, FB_API_SECRET )
+    session.auth_token = session_auth_token
+    session.secure_with!(session_key, session_uid, 0, secret_from_session)
+    return session
+  end
+    
 end
