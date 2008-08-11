@@ -49,10 +49,12 @@ Jabber.debug = @@log.debug?
 
 @sessions = {}
 
-def unescapeHTML(string)
-  string = CGI::unescapeHTML(string)
-  # CGI::unescapeHTML doesn't replace &apos, but we need to.
-  string.gsub("&apos;", "'")
+class String
+  def unescapeHTML
+    string = CGI::unescapeHTML(self)
+    # CGI::unescapeHTML doesn't replace &apos, but we need to.
+    string.gsub("&apos;", "'")
+  end
 end
 
 def send_message(to, type, message)
@@ -140,7 +142,7 @@ subscription_callback = lambda { |item,presence|
         response = @@service.store_session(u, @sessions[key], message)
         @sessions[key] = nil
       else
-        response = @@service.set_status(u, unescapeHTML(message))
+        response = @@service.set_status(u, message.unescapeHTML)
       end
       send_message(from_jid, m.type, response)
     end
