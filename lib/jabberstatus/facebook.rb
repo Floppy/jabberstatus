@@ -1,3 +1,7 @@
+# Copyright (c) 2008 James Smith (www.floppy.org.uk)
+#
+# http://www.opensource.org/licenses/mit-license.php
+ 
 require 'facebooker'
 
 require 'jabberstatus/jabber'
