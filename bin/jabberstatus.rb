@@ -20,16 +20,16 @@
 #
 # http://www.opensource.org/licenses/mit-license.php
 
+dir = File.dirname(__FILE__) + '/../lib'
+$LOAD_PATH << dir unless $LOAD_PATH.include?(dir)
+
 require 'rubygems'
 require 'xmpp4r/client'
 require 'xmpp4r/roster/helper/roster'
-require 'facebooker'
-require 'twitter'
 require 'log4r'
 require 'yaml'
-require 'openssl'
-require 'digest/sha1'
-require 'base64'
+
+require 'jabberstatus/service_factory'
 
 # Load config file
 config = YAML.load_file("#{File.dirname(__FILE__)}/../config/config.yml")
@@ -48,165 +48,6 @@ ADMIN_JID = config['admin_jid']
 Jabber.debug = @@log.debug?
 
 @sessions = {}
-
-module Jabber
-  module Roster
-    class RosterItem
-      def facebook_session=(session)
-        @@log.debug "Storing facebook session for #{jid}"
-        if session.infinite?
-          self.iname = "#{session.session_key} #{session.user.id} #{session.auth_token} #{session.secret_for_method(nil)}"
-          @@log.debug " - stored \"#{self.iname}\""
-          send
-        else
-          raise "Facebook session for #{jid} is not infinite!"
-        end
-      end
-      def facebook_session
-        @@log.debug "Restoring facebook session for #{jid}"
-        session_key, session_uid, session_auth_token, secret_from_session = self.iname.split
-        session = Facebooker::Session::Desktop.create( FB_API_KEY, FB_API_SECRET )
-        session.auth_token = session_auth_token
-        session.secure_with!(session_key, session_uid, 0, secret_from_session)
-        return session
-      end
-      def twitter_session=(credentials)
-        # Create hashed password
-        c = OpenSSL::Cipher::Cipher.new("aes-256-cbc")
-        c.encrypt
-        c.key = Digest::SHA1.hexdigest(TWITTER_CRYPT_KEY)
-        c.iv = Digest::SHA1.hexdigest(TWITTER_CRYPT_IV)
-        crypted_password = c.update(credentials[1])
-        crypted_password << c.final
-        # Encode
-        crypted_password = Base64.encode64(crypted_password)
-        @@log.debug "Storing twitter session for #{jid}"
-        self.iname = "#{credentials[0]} #{crypted_password}"
-        @@log.debug " - stored \"#{self.iname}\""
-        send
-      end
-      def twitter_session
-        @@log.debug "Restoring twitter session for #{jid}"
-        username, crypted_password = self.iname.split
-        # Decode
-        crypted_password = Base64.decode64(crypted_password)
-        # Decrypt password
-        c = OpenSSL::Cipher::Cipher.new("aes-256-cbc")
-        c.decrypt
-        c.key = Digest::SHA1.hexdigest(TWITTER_CRYPT_KEY)
-        c.iv = Digest::SHA1.hexdigest(TWITTER_CRYPT_IV)
-        password = c.update(crypted_password)
-        password << c.final
-        return Twitter::Base.new(username, password)
-      end
-    end
-  end
-end
-
-module ServiceFactory
-  def self.create_service(options)
-    if FacebookService.enabled?
-      return FacebookService.new(options)
-    elsif TwitterService.enabled?
-      return TwitterService.new(options)
-    end
-  end
-end
-
-class FacebookService
-
-  def self.enabled?
-    FB_API_KEY && FB_API_SECRET
-  end
-  
-  def initialize(options = {})
-    @log = options[:log]
-  end
-  
-  def name
-    "Facebook"
-  end
-  
-  def create_session
-    Facebooker::Session::Desktop.create( FB_API_KEY, FB_API_SECRET )
-  end
-
-  def welcome_message(session, jid)
-    # Create welcome messages
-    [ "Hi there #{jid.node.capitalize}! I can update your Facebook status for you if you like, but I need you to do a couple of things for me in order to do so.",
-      "Please go to #{session.login_url} and log in. Make sure you check the box which says 'save my login info'.",
-      "Then, please go to http://www.facebook.com/authorize.php?api_key=#{FB_API_KEY}&v=1.0&ext_perm=status_update, check the box and click OK.",
-      "When you've done those, come back here and let me know (just type OK or something).",
-      "By the way, if you want to know more about me, go to http://www.jabberstatus.org" ]
-  end
- 
-  def store_session(user, session, message_data)
-    @log.debug "... storing Facebook session data in roster"
-    session.secure!
-    user.facebook_session = session
-    @log.debug "... done"
-    "Thanks! You should now be able to set your status by just sending me a message. For instance, if you send 'is using JabberStatus', I will set your Facebook status to 'Yourname is using JabberStatus'. Try it out!"
-  rescue
-    "Sorry - something went wrong! We couldn't get the right details from Facebook. Did you check the 'save my login info' box?"
-  end
-  
-  def set_status(user, message)
-    @log.debug "setting Facebook status for #{user.jid.to_s} to \"#{message}\""
-    session = user.facebook_session
-    session.user.status = message
-    "I set your Facebook status to: '#{session.user.name} #{session.user.status.message}'"
-  rescue
-    "Sorry - something went wrong!"
-  end
-  
-end
-
-class TwitterService
-
-  def self.enabled?
-    TWITTER_CRYPT_KEY && TWITTER_CRYPT_IV
-  end
-
-  def initialize(options = {})
-    @log = options[:log]
-  end
-  
-  def name
-    "Twitter"
-  end
-  
-  def create_session
-    "pending"
-  end
-  
-  def welcome_message(session, jid)
-    # Create welcome messages
-    [ "Hi there #{jid.node.capitalize}! I can update your Twitter status for you if you like, but I need your Twitter details in order to do so.",
-      "Please send me your Twitter username and password, with a space in between. For instance, type 'james my_password'.",
-      "By the way, if you want to know more about me, go to http://www.jabberstatus.org" ]
-  end
-
-  def store_session(user, session, message_data)
-    twitter_credentials = message_data.squeeze(' ').split(' ')
-    @log.debug "... extracting username #{twitter_credentials[0]} and password #{twitter_credentials[1]}"
-    raise "bad credentials" if twitter_credentials.size != 2
-    user.twitter_session = twitter_credentials
-    @log.debug "... done"
-    "Thanks! You should now be able to set your status by just sending me a message. Try it out!"
-  rescue
-    "Sorry - something went wrong!"
-  end
-
-  def set_status(user, message)
-    @log.debug "setting Twitter status for #{user.jid.to_s} to \"#{message}\""
-    twitter = user.twitter_session
-    twitter.post(message)
-    "I set your status to '#{message}'"
-  rescue
-    "Sorry - something went wrong!"
-  end
-  
-end
 
 def unescapeHTML(string)
   string = CGI::unescapeHTML(string)
