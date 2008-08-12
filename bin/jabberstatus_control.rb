@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-#
+
 # Copyright (c) 2008 James Smith (www.floppy.org.uk)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
