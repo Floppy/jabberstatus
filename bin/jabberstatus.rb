@@ -30,26 +30,26 @@ require 'yaml'
 require 'jabberstatus/jabber_status_bot'
 
 # Load config file
-config = YAML.load_file("#{File.dirname(__FILE__)}/../config/config.yml")
-XMPP_JID = config['jabber_id']
-XMPP_PASSWORD = config['jabber_password']
-TWITTER_CRYPT_KEY = config['twitter_crypt_key']
-TWITTER_CRYPT_IV = config['twitter_crypt_iv']
-FB_API_KEY = config['facebook_api_key']
-FB_API_SECRET = config['facebook_api_secret']
-ADMIN_JID = config['admin_jid']
+options = YAML.load_file("#{File.dirname(__FILE__)}/../config/config.yml")
 
 # Create logger
 log = Log4r::Logger.new 'log'
 log.outputters = Log4r::Outputter.stdout
-log.level = config['debug_mode'] == true ? Log4r::DEBUG : Log4r::ERROR
+log.level = options['debug_mode'] == true ? Log4r::DEBUG : Log4r::ERROR
 Jabber.debug = log.debug?
+options[:log] = log
 
+# Get main thread to pass to jabber bot
+options[:mainthread] = Thread.current
+
+# Create Jabber bot
 log.debug "Creating jabber bot"
-bot = JabberStatusBot.new(:log => log, :mainthread => Thread.current)
+bot = JabberStatusBot.new(options)
 
+# Pause main thread to let Jabber bot take over
 log.debug "Initialisation complete - ready for commands"
 Thread.stop
 
+# Once this thread is woken up, the Jabber bot wants to exit, so close it down.
 log.debug "Exiting"
 bot.close

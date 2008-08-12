@@ -7,12 +7,9 @@ require 'jabberstatus/twitter'
 
 module ServiceFactory
   def self.create_service(options)
-    if FacebookService.enabled?
-      options[:log].debug "Creating Facebook service"
-      return FacebookService.new(options)
-    elsif TwitterService.enabled?
-      options[:log].debug "Creating Twitter service"
-      return TwitterService.new(options)
-    end
+    # Try to create services in turn - they will fail if required settings are not found
+    return FacebookService.new(options) rescue nil
+    return TwitterService.new(options) rescue nil
+    raise "Couldn't create any services. Check config.yml"
   end
 end

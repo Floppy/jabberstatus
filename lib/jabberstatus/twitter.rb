@@ -12,12 +12,15 @@ require 'jabberstatus/jabber'
 
 class TwitterService
 
-  def self.enabled?
-    TWITTER_CRYPT_KEY && TWITTER_CRYPT_IV
-  end
-
   def initialize(options = {})
     @log = options[:log]
+    @crypt_key = options['twitter_crypt_key']
+    @crypt_iv = options['twitter_crypt_iv']
+    if @crypt_key.nil? || @crypt_iv.nil?
+      @log.debug "Twitter service creation failed"
+      raise "Twitter service creation failed - configuration info missing!"
+    end
+    @log.debug "Twitter service created"
   end
   
   def name
@@ -61,8 +64,8 @@ class TwitterService
     # Create hashed password
     c = OpenSSL::Cipher::Cipher.new("aes-256-cbc")
     c.encrypt
-    c.key = Digest::SHA1.hexdigest(TWITTER_CRYPT_KEY)
-    c.iv = Digest::SHA1.hexdigest(TWITTER_CRYPT_IV)
+    c.key = Digest::SHA1.hexdigest(@crypt_key)
+    c.iv = Digest::SHA1.hexdigest(@crypt_iv)
     crypted_password = c.update(credentials[1])
     crypted_password << c.final
     # Encode
@@ -80,8 +83,8 @@ class TwitterService
     # Decrypt password
     c = OpenSSL::Cipher::Cipher.new("aes-256-cbc")
     c.decrypt
-    c.key = Digest::SHA1.hexdigest(TWITTER_CRYPT_KEY)
-    c.iv = Digest::SHA1.hexdigest(TWITTER_CRYPT_IV)
+    c.key = Digest::SHA1.hexdigest(@crypt_key)
+    c.iv = Digest::SHA1.hexdigest(@crypt_iv)
     password = c.update(crypted_password)
     password << c.final
     return Twitter::Base.new(username, password)

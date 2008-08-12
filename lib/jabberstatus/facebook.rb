@@ -9,12 +9,15 @@ require 'jabberstatus/jabber'
 
 class FacebookService
 
-  def self.enabled?
-    FB_API_KEY && FB_API_SECRET
-  end
-  
   def initialize(options = {})
     @log = options[:log]
+    @api_key = options['facebook_api_key']
+    @api_secret = options['facebook_api_secret']
+    if @api_key.nil? || @api_secret.nil?
+      @log.debug "Facebook service creation failed"
+      raise "Facebook service creation failed - configuration info missing!"
+    end
+    @log.debug "Facebook service created"
   end
   
   def name
@@ -22,14 +25,14 @@ class FacebookService
   end
   
   def create_session
-    Facebooker::Session::Desktop.create( FB_API_KEY, FB_API_SECRET )
+    Facebooker::Session::Desktop.create( @api_key, @api_secret )
   end
 
   def welcome_message(session, jid)
     # Create welcome messages
     [ "Hi there #{jid.node.capitalize}! I can update your Facebook status for you if you like, but I need you to do a couple of things for me in order to do so.",
       "Please go to #{session.login_url} and log in. Make sure you check the box which says 'save my login info'.",
-      "Then, please go to http://www.facebook.com/authorize.php?api_key=#{FB_API_KEY}&v=1.0&ext_perm=status_update, check the box and click OK.",
+      "Then, please go to http://www.facebook.com/authorize.php?api_key=#{@api_key}&v=1.0&ext_perm=status_update, check the box and click OK.",
       "When you've done those, come back here and let me know (just type OK or something).",
       "By the way, if you want to know more about me, go to http://www.jabberstatus.org" ]
   end
@@ -66,7 +69,7 @@ protected
   def retrieve_session_from_roster(user)
     @log.debug "Restoring facebook session for #{user.jid.to_s}"
     session_key, session_uid, session_auth_token, secret_from_session = user.session_data
-    session = Facebooker::Session::Desktop.create( FB_API_KEY, FB_API_SECRET )
+    session = Facebooker::Session::Desktop.create( @api_key, @api_secret )
     session.auth_token = session_auth_token
     session.secure_with!(session_key, session_uid, 0, secret_from_session)
     return session

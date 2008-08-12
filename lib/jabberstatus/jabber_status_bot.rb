@@ -20,15 +20,17 @@ class JabberStatusBot
     @mainthread = options[:mainthread]
     # Create service object
     @log.debug "Creating service object"
-    @service = ServiceFactory.create_service(:log => @log)
+    @service = ServiceFactory.create_service(options)
     # Create XMPP client
     @log.debug "Creating jabber client"
-    @client = Jabber::Client::new(XMPP_JID)
+    @client = Jabber::Client::new(options['jabber_id'])
     @client.connect
-    @client.auth(XMPP_PASSWORD)
+    @client.auth(options['jabber_password'])
     @log.debug "Authenticated with Jabber server"
     @client.send(Jabber::Presence::new(:chat, 'awaiting your command :)'))
     @log.debug "Presence sent"
+    # Store admin JID
+    @admin_jid = options['admin_jid']
     # Get the roster
     @roster = Jabber::Roster::Helper.new(@client)
     dump_roster if @log.debug?
@@ -55,7 +57,7 @@ class JabberStatusBot
         if u.nil?
           @log.debug "... couldn't find user '#{from_jid.strip}' in roster - saying hello"
           send_message(from_jid, m.type, "Hi! I don't think I know you - please add me to your contact list, and I can update your #{@@service.name} status for you!")
-        elsif m.body == 'exit' and from_jid.strip == ADMIN_JID
+        elsif m.body == 'exit' and from_jid.strip == @admin.jid
           @log.debug "... exit received"
           send_message(from_jid, m.type, "Exiting...")
           @mainthread.wakeup
