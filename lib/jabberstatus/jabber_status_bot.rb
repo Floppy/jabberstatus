@@ -23,7 +23,7 @@ class JabberStatusBot
     @service = ServiceFactory.create_service(options)
     # Create XMPP client
     @log.debug "Creating jabber client"
-    @client = Jabber::Client::new(options['jabber_id'] + '/JabberStatus')
+    @client = Jabber::Client::new(options['jabber_id'])
     @client.connect
     @client.auth(options['jabber_password'])
     @log.debug "Authenticated with Jabber server"
