@@ -2,6 +2,7 @@
 #
 # http://www.opensource.org/licenses/mit-license.php
  
+require 'rubygems'
 require 'facebooker'
 
 require 'jabberstatus/jabber'
