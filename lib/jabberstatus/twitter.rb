@@ -5,6 +5,7 @@
 require 'openssl'
 require 'digest/sha1'
 require 'base64'
+require 'rubygems'
 require 'twitter'
 
 require 'jabberstatus/jabber'
@@ -66,14 +67,13 @@ class TwitterService
     crypted_password << c.final
     # Encode
     crypted_password = Base64.encode64(crypted_password)
-    @log.debug "Storing twitter session for #{jid}"
+    @log.debug "Storing twitter session for #{user.jid}"
     user.session_data = [credentials[0], crypted_password]
-    @log.debug " - stored \"#{self.iname}\""
-    send
+    @log.debug " - stored \"#{user.iname}\""
   end
   
   def retrieve_session_from_roster(user)
-    @log.debug "Restoring twitter session for #{jid}"
+    @log.debug "Restoring twitter session for #{user.jid}"
     username, crypted_password = user.session_data
     # Decode
     crypted_password = Base64.decode64(crypted_password)
