@@ -51,6 +51,7 @@ class TwitterService
 
   def set_status(user, message)
     @log.debug "setting Twitter status for #{user.jid.to_s} to \"#{message}\""
+    return "Sorry, Twitter only allows 140 characters, and you wrote #{message.length}." if message.length > 140
     twitter = retrieve_session_from_roster(user)
     twitter.post(message)
     "I set your status to '#{message}'"
