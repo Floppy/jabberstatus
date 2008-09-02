@@ -11,7 +11,7 @@ ruby >= 1.8
 rubygems
 xmpp4r >= 0.3.2
 facebooker >= subversion rev 217 (0.9.5 doesn't work)
-twitter >= 0.3.2
+twitter >= 0.3.7
 log4r >= 1.0.5
 daemons >= 1.0.10
 json >= 1.1.2
