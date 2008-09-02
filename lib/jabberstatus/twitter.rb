@@ -60,7 +60,11 @@ class TwitterService
   end
 
   def get_status(user)
-    nil
+    @log.debug "getting Twitter status for #{user.jid.to_s}"
+    twitter = retrieve_session_from_roster(user)
+    twitter.timeline(:user, :count => 1).first.text
+  rescue
+    "Sorry - something went wrong!"
   end
 
   protected
