@@ -59,6 +59,10 @@ class TwitterService
     "Sorry - something went wrong!"
   end
 
+  def get_status(user)
+    nil
+  end
+
   protected
 
   def store_session_in_roster(user, credentials)

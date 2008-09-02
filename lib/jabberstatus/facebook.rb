@@ -55,6 +55,14 @@ class FacebookService
   rescue
     "Sorry - something went wrong!"
   end
+
+  def get_status(user)
+    @log.debug "getting Facebook status for #{user.jid.to_s} to \"#{message}\""
+    session = retrieve_session_from_roster(user)
+    "#{session.user.name} #{session.user.status.message}"
+  rescue
+    "Sorry - something went wrong!"
+  end
   
 protected
 

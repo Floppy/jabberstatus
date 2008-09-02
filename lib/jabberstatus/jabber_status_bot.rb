@@ -61,6 +61,10 @@ class JabberStatusBot
           @log.debug "... exit received"
           send_message(from_jid, m.type, "Exiting...")
           @mainthread.wakeup
+        elsif m.body == '?'
+          @log.debug "... status query received"
+          status = @service.get_status(u)
+          send_message(from_jid, m.type, "Your status is currently \"#{status}\"") if status
         else
           @log.debug "... message is '#{message}'"
           key = from_jid.strip.to_s
