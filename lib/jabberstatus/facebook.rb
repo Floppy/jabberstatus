@@ -42,7 +42,7 @@ class FacebookService
     session.secure!
     store_session_in_roster(user, session)
     @log.debug "... done"
-    "Thanks! You should now be able to set your status by just sending me a message. For instance, if you send 'is using JabberStatus', I will set your Facebook status to 'Yourname is using JabberStatus'. Try it out!"
+    "Thanks! You should now be able to set your status by just sending me a message. For instance, if you send 'is using JabberStatus', I will set your Facebook status to 'Yourname is using JabberStatus'. You can also just send ? to get your current status. Try it out!"
   rescue
     "Sorry - something went wrong! We couldn't get the right details from Facebook. Did you check the 'save my login info' box?"
   end

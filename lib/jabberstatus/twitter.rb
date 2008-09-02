@@ -44,7 +44,7 @@ class TwitterService
     raise "bad credentials" if twitter_credentials.size != 2
     store_session_in_roster(user, twitter_credentials)
     @log.debug "... done"
-    "Thanks! You should now be able to set your status by just sending me a message. Try it out!"
+    "Thanks! You should now be able to set your status by just sending me a message. You can also just send ? to get your current status. Try it out!"
   rescue
     "Sorry - something went wrong!"
   end
