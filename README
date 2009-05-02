@@ -26,7 +26,7 @@ and follow the instructions.
 If you don't trust me with your information (sensible), and want to run your own
 version of the gateway:
 
-1) Download from http://www.jabberstatus.org
+1) Download from http://floppy.github.com/jabberstatus
 
 2) Extract to a directory on your machine (tar xzvf jabberstatus.*.tar.gz)
 
@@ -51,7 +51,7 @@ version of the gateway:
 CONTACT
 -------
 
-Homepage: http://www.jabberstatus.org
+Homepage: http://floppy.github.com/jabberstatus
 Developer: james@floppy.org.uk
 
 LICENSE
